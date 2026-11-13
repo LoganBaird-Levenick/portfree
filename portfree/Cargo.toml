@@ -1,0 +1,44 @@
+[package]
+name = "portfree"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.100"
+description = "Identify which process owns a TCP port and stop exactly that process after confirmation"
+license = "MIT"
+publish = false
+
+[dependencies]
+clap = { version = "=4.6.7", features = ["derive"] }
+netstat2 = "=0.11.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sysinfo = "=0.40.3"
+windows-sys = { version = "=0.61.2", features = [
+    "Win32_Foundation",
+    "Win32_Networking_WinSock",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Console",
+    "Win32_System_RemoteDesktop",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+] }
+
+[lib]
+name = "portfree"
+path = "src/lib.rs"
+
+[[bin]]
+name = "portfree"
+path = "src/main.rs"
+
+[[bin]]
+name = "portfree-test-listener"
+path = "tests/fixtures/listener.rs"
+test = false
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
