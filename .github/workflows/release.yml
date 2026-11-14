@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
@@ -40,7 +40,6 @@ jobs:
       REF_TYPE: ${{ github.ref_type }}
       REF_NAME: ${{ github.ref_name }}
       HEAD_SHA: ${{ github.sha }}
-      GITHUB_REPOSITORY: ${{ github.repository }}
     steps:
       - name: Check out the release ref
         uses: actions/checkout@v7
@@ -62,7 +61,6 @@ jobs:
       # The tag is the source of release truth. This step validates it but never
       # creates or pushes one: cargo-release owns version bumps and tags.
       - name: Resolve the release version
-        id: meta
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -73,19 +71,14 @@ jobs:
           } else {
             $input = $env:INPUT_VERSION.Trim()
             if ($input -match '^portfree-v(?<version>.+)$') {
-              $version = $Matches['version']
-            } else {
-              $version = $input
+              $input = $Matches['version']
             }
-            if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
-              throw "Invalid version '$input'. Pass a semantic version such as 1.0.0 or a tag such as portfree-v1.0.0."
-            }
-            $tag = "portfree-v$version"
+            $tag = "portfree-v$input"
             $dryRun = $env:INPUT_DRY_RUN -eq 'true'
           }
 
           if ($tag -notmatch '^portfree-v(?<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$') {
-            throw "Tag '$tag' does not match the portfree-v{version} convention."
+            throw "Invalid release '$tag'. Use the portfree-v{version} tag convention with a semantic version."
           }
           $version = $Matches['version']
 
@@ -99,7 +92,10 @@ jobs:
             throw 'The portfree package was not found in the workspace.'
           }
           if ($package.version -ne $version) {
-            throw "Cargo.toml declares portfree $($package.version), but the release tag is $tag. Run cargo release instead of tagging by hand."
+            if (-not $dryRun) {
+              throw "Cargo.toml declares portfree $($package.version), but the release tag is $tag. Run cargo release instead of tagging by hand."
+            }
+            Write-Warning "Dry run for $version builds the current Cargo.toml version $($package.version). The draft is a rehearsal and must not be published."
           }
 
           if ($env:EVENT_NAME -eq 'workflow_dispatch' -and -not $dryRun) {
@@ -114,11 +110,9 @@ jobs:
           }
 
           $asset = "portfree-v$version-x86_64-pc-windows-msvc"
-          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "ASSET=$asset" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "DRY_RUN=$($dryRun.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "dry_run=$($dryRun.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
           Write-Host "Release tag: $tag"
           Write-Host "Release asset: $asset"
@@ -185,6 +179,9 @@ jobs:
           if ($exists) {
             $release = $releaseJson | ConvertFrom-Json
             if (-not $release.isDraft) {
+              if ($env:DRY_RUN -eq 'true') {
+                throw "Release $($env:TAG) is already published; a dry run cannot target a published version."
+              }
               "RELEASE_PUBLISHED=true" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
               Write-Host "Release $($env:TAG) is already published; it will be verified and left unchanged."
               return
@@ -329,10 +326,8 @@ jobs:
             $attestationSummary = '- Checksums and zip contents verified; build provenance skipped for a private repository'
           }
 
-          $releaseUrl = $null
-          if ($env:RELEASE_PUBLISHED -ne 'true') {
-            $releaseUrl = (gh release view $env:TAG --json url --jq .url)
-          }
+          $releaseUrl = gh release view $env:TAG --json url --jq .url
+          $releaseLabel = if ($env:RELEASE_PUBLISHED -eq 'true') { 'Release' } else { 'Draft release' }
           $summary = @(
             '### Release verification',
             '',
@@ -341,12 +336,12 @@ jobs:
             "- Zip SHA-256: ``$($sums["$($env:ASSET).zip"])``",
             "- Executable SHA-256: ``$($sums['portfree.exe'])``",
             $attestationSummary,
-            "- Draft release: $releaseUrl"
+            "- ${releaseLabel}: $releaseUrl"
           ) -join "`n"
           $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
 
       - name: Publish the draft release
-        if: env.RELEASE_PUBLISHED != 'true' && steps.meta.outputs.dry_run != 'true'
+        if: env.RELEASE_PUBLISHED != 'true' && env.DRY_RUN != 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'

@@ -22,5 +22,6 @@ The 2026-11-13 [release-tooling research note](../research/2026-11-13-windows-ru
 - Release assets are a zip and a standalone `.exe`, not an installer. There is no MSI, winget/Scoop/Homebrew package, or Microsoft Store listing.
 - Unsigned binaries trigger SmartScreen. The README must explain the warning and the checksum/attestation verification steps; it must not claim that releases are signed.
 - `cargo-release` runs locally and pushes the tag, so the tag-triggered workflow is not suppressed by `GITHUB_TOKEN`.
+- Build-provenance attestations require a public repository on a user-owned account. A private dry run verifies the artifacts without provenance, and the release workflow refuses to publish a real release while the repository is private. The public flip is a prerequisite for the first release, not an afterthought.
 - `publish = false` stays. Revisit crates.io only if publication becomes a product requirement, which would add a publish step to `cargo-release`.
 - `dist` is reconsidered if an MSI or one-liner installer becomes a requirement. Signing is reconsidered before a wider launch or if SmartScreen warnings become a support burden.

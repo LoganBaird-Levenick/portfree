@@ -7,6 +7,4 @@ strip = true
 lto = "thin"
 
 [workspace.metadata.release]
-publish = false
-tag-name = "portfree-v{{version}}"
 allow-branch = ["main"]

@@ -6,13 +6,13 @@ The release tag convention is `portfree-v{version}`, for example `portfree-v1.0.
 
 ## Prerequisites
 
-- `cargo-release` installed (`cargo install cargo-release --locked`).
+- `cargo-release` 1.1.7 installed (`cargo install cargo-release --locked --version 1.1.7`).
 - A clean `main` checkout with the latest `origin/main` and green CI.
 - Permission to push `main` and tags, and to write releases.
 
 ## Rehearse with a dry run
 
-A manual dispatch builds every release artifact and leaves a draft release. It does not publish and does not create a tag. Draft releases do not create git tags, so the tag name is reserved only for the draft.
+A manual dispatch builds every release artifact and leaves a draft release. It does not publish and does not create a tag. Draft releases do not create git tags, so the tag name is reserved only for the draft. The dry run may target a version that `Cargo.toml` does not declare yet, so the next release can be rehearsed before `cargo-release` bumps the manifest; that draft is a rehearsal and must not be published.
 
 GitHub does not issue build-provenance attestations for user-owned private repositories, so a private dry run verifies the checksums and zip contents but skips the attestation. A real release refuses to run while the repository is private. Once the repository is public, the dry run and every real release create and verify attestations.
 
@@ -27,6 +27,11 @@ Download the draft assets and run the same checks a user would:
 ```powershell
 gh release download portfree-v1.0.0 --dir dry-run
 Get-Content dry-run\SHA256SUMS
+```
+
+While the repository is private, skip the two provenance checks below; the workflow reports that provenance was skipped. After the public flip, they must pass:
+
+```powershell
 gh attestation verify dry-run\portfree-v1.0.0-x86_64-pc-windows-msvc.zip --repo LoganBaird-Levenick/portfree
 gh attestation verify dry-run\portfree.exe --repo LoganBaird-Levenick/portfree
 ```
@@ -85,4 +90,5 @@ The run reuses the existing draft, replaces the assets, verifies them, and publi
 
 - Never run `cargo release` from a tag-pushing workflow step: a tag pushed with `GITHUB_TOKEN` does not trigger its own workflow.
 - Never create the release tag in the workflow. A non-dry-run manual dispatch refuses to run unless the tag already exists and points at the dispatched commit.
-- `publish = false` in `portfree/Cargo.toml` is deliberate. There is no crates.io release; the GitHub Release is the distribution channel.
+- `publish = false` in `portfree/Cargo.toml`, and the matching switch in its `[package.metadata.release]` table, are deliberate. There is no crates.io release; the GitHub Release is the distribution channel.
+- A dry run never targets a published version. Re-running a published tag verifies the released assets and leaves them unchanged; the tag and its assets are immutable.
