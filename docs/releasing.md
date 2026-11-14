@@ -12,7 +12,9 @@ The release tag convention is `portfree-v{version}`, for example `portfree-v1.0.
 
 ## Rehearse with a dry run
 
-A manual dispatch builds every release artifact, attests it, and leaves a draft release. It does not publish and does not create a tag. Draft releases do not create git tags, so the tag name is reserved only for the draft.
+A manual dispatch builds every release artifact and leaves a draft release. It does not publish and does not create a tag. Draft releases do not create git tags, so the tag name is reserved only for the draft.
+
+GitHub does not issue build-provenance attestations for user-owned private repositories, so a private dry run verifies the checksums and zip contents but skips the attestation. A real release refuses to run while the repository is private. Once the repository is public, the dry run and every real release create and verify attestations.
 
 ```powershell
 gh workflow run release.yml --ref main -f version=1.0.0 -f dry_run=true

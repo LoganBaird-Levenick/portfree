@@ -124,6 +124,27 @@ jobs:
           Write-Host "Release asset: $asset"
           Write-Host "Dry run: $dryRun"
 
+      # GitHub only issues build-provenance attestations for public repositories
+      # on a user-owned repo. A private dry run can still verify the artifacts,
+      # but a real release must not publish an unattested build.
+      - name: Check attestation availability
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $visibility = gh api "repos/$env:GITHUB_REPOSITORY" --jq .visibility
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not read the visibility of $env:GITHUB_REPOSITORY."
+          }
+          $attestations = $visibility -eq 'public'
+          if (-not $attestations -and $env:DRY_RUN -ne 'true') {
+            throw 'Build provenance attestations require a public repository. Refusing to publish an unattested release from a private repository.'
+          }
+          if (-not $attestations) {
+            Write-Warning 'Repository is private; skipping build provenance attestations for this dry run.'
+          }
+          "ATTESTATIONS=$($attestations.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Run the full test suite
         run: cargo test --all-targets --locked
 
@@ -191,7 +212,7 @@ jobs:
           "RELEASE_PUBLISHED=false" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Attest the release artifacts
-        if: env.RELEASE_PUBLISHED != 'true'
+        if: env.ATTESTATIONS == 'true' && env.RELEASE_PUBLISHED != 'true'
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
@@ -293,13 +314,19 @@ jobs:
             throw 'The executable inside the zip differs from the standalone executable.'
           }
 
-          gh attestation verify $zipPath --repo $env:GITHUB_REPOSITORY
-          if ($LASTEXITCODE -ne 0) {
-            throw 'Build provenance for the zip did not verify.'
-          }
-          gh attestation verify (Join-Path $verify 'portfree.exe') --repo $env:GITHUB_REPOSITORY
-          if ($LASTEXITCODE -ne 0) {
-            throw 'Build provenance for the standalone executable did not verify.'
+          if ($env:ATTESTATIONS -eq 'true') {
+            gh attestation verify $zipPath --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Build provenance for the zip did not verify.'
+            }
+            gh attestation verify (Join-Path $verify 'portfree.exe') --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Build provenance for the standalone executable did not verify.'
+            }
+            $attestationSummary = '- Checksums, zip contents, and build provenance verified'
+          } else {
+            Write-Warning 'Skipping attestation verification for a private-repository dry run.'
+            $attestationSummary = '- Checksums and zip contents verified; build provenance skipped for a private repository'
           }
 
           $releaseUrl = $null
@@ -313,7 +340,7 @@ jobs:
             "- Zip: ``$($env:ASSET).zip``",
             "- Zip SHA-256: ``$($sums["$($env:ASSET).zip"])``",
             "- Executable SHA-256: ``$($sums['portfree.exe'])``",
-            '- Checksums, zip contents, and build provenance verified',
+            $attestationSummary,
             "- Draft release: $releaseUrl"
           ) -join "`n"
           $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
