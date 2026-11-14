@@ -62,3 +62,7 @@ Run them from the repository root, in a normal (non-elevated) terminal. `cargo f
 Use an imperative, present-tense commit subject ("Add the JSON outcome field", not "Added" or "Adds"), matching the existing history. A short subject is enough for a small change; add a body when the reason is not obvious.
 
 Every pull request must pass the Windows check before merge, including documentation-only and CI-only changes. The required status check runs whether or not the change affects the build, so run the same gate locally rather than relying on the CI queue to find a problem.
+
+## Releasing
+
+Releases are maintainer-only. Version bumps, tags, and pushes are handled by `cargo-release`, and the `portfree-v{version}` tag triggers the release workflow. The dry-run procedure, asset contract, verification steps, and repair path are in [docs/releasing.md](docs/releasing.md).
