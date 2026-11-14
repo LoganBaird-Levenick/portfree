@@ -1,0 +1,4 @@
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/LoganBaird-Levenick/portfree/security/advisories/new
+    about: Report vulnerabilities privately. Do not open a public issue for a security problem.
