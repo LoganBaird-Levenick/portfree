@@ -4,6 +4,8 @@ version = "1.0.0"
 edition = "2024"
 rust-version = "1.100"
 description = "Identify which process owns a TCP port and stop exactly that process after confirmation"
+authors = ["Logan Baird-Levenick"]
+repository = "https://github.com/LoganBaird-Levenick/portfree"
 license = "MIT"
 publish = false
 

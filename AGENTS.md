@@ -4,7 +4,7 @@
 
 ### Issue tracker
 
-Issues live as GitHub issues in `LoganBaird-Levenick/Rust`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues live as GitHub issues in `LoganBaird-Levenick/portfree`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Domain docs
 
