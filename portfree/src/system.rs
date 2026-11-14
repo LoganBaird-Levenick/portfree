@@ -162,8 +162,9 @@ impl ProcessSystem for WindowsSystem {
             .ok_or(ErrorCode::NotInspectable)?
             .as_raw_handle() as HANDLE;
 
-        // 1. Critical process. Checked before session 0 so PID 4 is
-        //    reported as critical_process.
+        // 1. Critical process. Checked before session 0 so a critical
+        //    process is reported as critical_process. Hosts that do not
+        //    report PID 4 as critical still refuse it via session 0.
         let mut critical = 0;
         if unsafe { IsProcessCritical(handle, &mut critical) } == 0 {
             return Err(ErrorCode::NotInspectable);
@@ -549,14 +550,20 @@ mod tests {
                 let snapshot = snapshot_for(pid, r"C:\Windows\System32\ntoskrnl.exe");
                 // Some hosts (GitHub-hosted runners among them) report PID 4
                 // as non-critical, so the session 0 check refuses it instead.
-                // Either refusal means nothing is killed.
-                assert!(
-                    matches!(
-                        system.safety(pid, token, &snapshot),
-                        Err(ErrorCode::CriticalProcess | ErrorCode::SessionZero)
-                    ),
-                    "PID 4 must be refused"
-                );
+                let handle = system
+                    .queries
+                    .get(&token.0)
+                    .expect("query handle")
+                    .as_raw_handle() as HANDLE;
+                let mut critical = 0;
+                let ok = unsafe { IsProcessCritical(handle, &mut critical) };
+                assert_ne!(ok, 0);
+                let expected = if critical != 0 {
+                    ErrorCode::CriticalProcess
+                } else {
+                    ErrorCode::SessionZero
+                };
+                assert_eq!(system.safety(pid, token, &snapshot), Err(expected));
             }
             // PID 4 is protected by policy in some environments. Refusing to
             // inspect it is the same safety outcome: nothing is killed.

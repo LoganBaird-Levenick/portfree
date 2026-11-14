@@ -203,7 +203,7 @@ Only `code` is stable; `message` is human text and may change between patch vers
 - `SO_REUSEADDR` two-process hijack: `ambiguous_port`; `--pid` kills one and reports `failed` / `port_still_held`.
 - `--pid` on a free port: `pid_not_listening`, exit 3.
 - No listener: `no_listener`, exit 0.
-- System refusal: PID 4 / critical process.
+- System refusal: PID 4 / critical process (or session 0 on hosts that do not report PID 4 as critical).
 - Fake-table tests: `pid_zero`, `ambiguous_port`, `stale_target`, `not_inspectable`.
 - TTY gate: stdin or stderr not a TTY yields `no_tty`, exit 4; `echo y | portfree 3000` does not authorize.
 - JSON snapshot per outcome; unknown-code tolerance.
