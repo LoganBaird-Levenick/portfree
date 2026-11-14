@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: windows-latest
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Install the pinned toolchain
+        run: rustup install
+
+      - name: Verify the pinned toolchain
+        shell: pwsh
+        run: |
+          $pinned = (Select-String -Path rust-toolchain.toml -Pattern 'channel\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
+          $active = ((rustup show active-toolchain) -split ' ')[0]
+          rustc --version
+          cargo --version
+          if (-not $active.StartsWith($pinned)) {
+            throw "Active toolchain '$active' does not match the pinned channel '$pinned'"
+          }
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Lint
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --all-targets --locked
+
+      - name: Build release
+        run: cargo build --release --locked
