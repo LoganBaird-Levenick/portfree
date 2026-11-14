@@ -547,9 +547,15 @@ mod tests {
         match system.open_query(pid) {
             Ok(token) => {
                 let snapshot = snapshot_for(pid, r"C:\Windows\System32\ntoskrnl.exe");
-                assert_eq!(
-                    system.safety(pid, token, &snapshot),
-                    Err(ErrorCode::CriticalProcess)
+                // Some hosts (GitHub-hosted runners among them) report PID 4
+                // as non-critical, so the session 0 check refuses it instead.
+                // Either refusal means nothing is killed.
+                assert!(
+                    matches!(
+                        system.safety(pid, token, &snapshot),
+                        Err(ErrorCode::CriticalProcess | ErrorCode::SessionZero)
+                    ),
+                    "PID 4 must be refused"
                 );
             }
             // PID 4 is protected by policy in some environments. Refusing to
