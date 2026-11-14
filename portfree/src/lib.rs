@@ -17,3 +17,4 @@ pub use model::{
     Envelope, ErrorCode, Family, KillReport, Listener, Outcome, ProcessRef, ProcessSnapshot,
     RowState, TcpRow, exit_code, exit_code_from_name,
 };
+pub fn ci_red_format() -> i32 { 1+1 }
