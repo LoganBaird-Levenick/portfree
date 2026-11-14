@@ -29,11 +29,11 @@ gh release download portfree-v1.0.0 --dir dry-run
 Get-Content dry-run\SHA256SUMS
 ```
 
-While the repository is private, skip the two provenance checks below; the workflow reports that provenance was skipped. After the public flip, they must pass:
+Both provenance checks must pass. The dry run is dispatched from `main`, so it verifies against `refs/heads/main`; a real release uses `refs/tags/portfree-v1.0.0`:
 
 ```powershell
-gh attestation verify dry-run\portfree-v1.0.0-x86_64-pc-windows-msvc.zip --repo LoganBaird-Levenick/portfree
-gh attestation verify dry-run\portfree.exe --repo LoganBaird-Levenick/portfree
+gh attestation verify dry-run\portfree-v1.0.0-x86_64-pc-windows-msvc.zip --repo LoganBaird-Levenick/portfree --signer-workflow LoganBaird-Levenick/portfree/.github/workflows/release.yml --source-ref refs/heads/main
+gh attestation verify dry-run\portfree.exe --repo LoganBaird-Levenick/portfree --signer-workflow LoganBaird-Levenick/portfree/.github/workflows/release.yml --source-ref refs/heads/main
 ```
 
 Inspect the zip. It must contain exactly `portfree-v1.0.0-x86_64-pc-windows-msvc\portfree.exe`, `README.md`, and `LICENSE`, and must not contain `portfree-test-listener.exe`.
@@ -60,7 +60,7 @@ cargo release patch --execute
 3. Packages the versioned zip, the standalone executable, and `SHA256SUMS`.
 4. Creates build-provenance attestations for the zip and executable.
 5. Creates a draft release with generated notes.
-6. Downloads the released assets and verifies the checksums, zip contents, and attestations.
+6. Verifies that the release carries exactly those three assets, then downloads them and checks the checksums, zip contents, and signed provenance against this workflow and the tag.
 7. Publishes the draft only after verification succeeds.
 
 Watch the run and confirm the published release:
@@ -84,7 +84,7 @@ or dispatch it explicitly from the tag:
 gh workflow run release.yml --ref portfree-v1.0.0 -f version=1.0.0 -f dry_run=false
 ```
 
-The run reuses the existing draft, replaces the assets, verifies them, and publishes. A published release is immutable: a later run verifies the published assets and leaves them unchanged. If a published release is missing assets, cut a new version; do not rewrite the tag.
+The run reuses the existing draft, replaces the expected assets, removes any unexpected draft assets, verifies the exact asset set, and publishes. A published release is immutable: a later run verifies the published assets and leaves them unchanged. If a published release is missing or has extra assets, cut a new version; do not rewrite the tag.
 
 ## Constraints
 

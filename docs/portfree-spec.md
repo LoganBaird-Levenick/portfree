@@ -9,7 +9,9 @@ A Windows CLI that identifies which process owns a TCP port and stops exactly th
 
 ## Non-goals
 
-UDP. Multiple ports per invocation. A global port listing. Config or state. A non-Windows backend. A release pipeline. Raw command line / PEB reading. Graceful shutdown. `--force`. Parent-supervisor heuristics.
+UDP. Multiple ports per invocation. A global port listing. Config or state. A non-Windows backend. Raw command line / PEB reading. Graceful shutdown. `--force`. Parent-supervisor heuristics.
+
+Distribution and release tooling are governed by [ADR-0004](adr/0004-public-distribution-and-release-tooling.md); they are not part of the runtime scope.
 
 ## CLI
 

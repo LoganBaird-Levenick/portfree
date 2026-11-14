@@ -236,6 +236,29 @@ jobs:
           Remove-Item -Recurse -Force $verify -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $verify | Out-Null
 
+          $expectedAssets = @("$env:ASSET.zip", 'portfree.exe', 'SHA256SUMS')
+          $actualAssets = @(gh release view $env:TAG --json assets --jq '.assets[].name')
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not read the assets of release $($env:TAG)."
+          }
+          $missingAssets = @($expectedAssets | Where-Object { $_ -notin $actualAssets })
+          if ($missingAssets.Count -gt 0) {
+            throw "The release is missing: $($missingAssets -join ', ')."
+          }
+          $unexpectedAssets = @($actualAssets | Where-Object { $_ -notin $expectedAssets })
+          if ($unexpectedAssets.Count -gt 0) {
+            if ($env:RELEASE_PUBLISHED -eq 'true') {
+              throw "The published release contains unexpected assets: $($unexpectedAssets -join ', ')."
+            }
+            foreach ($name in $unexpectedAssets) {
+              Write-Warning "Removing unexpected draft asset $name."
+              gh release delete-asset $env:TAG $name --yes
+              if ($LASTEXITCODE -ne 0) {
+                throw "Failed to remove the unexpected asset $name from the draft release."
+              }
+            }
+          }
+
           gh release download $env:TAG --dir $verify
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to download the release assets for $($env:TAG)."
@@ -312,15 +335,23 @@ jobs:
           }
 
           if ($env:ATTESTATIONS -eq 'true') {
-            gh attestation verify $zipPath --repo $env:GITHUB_REPOSITORY
+            $signerWorkflow = "$env:GITHUB_REPOSITORY/.github/workflows/release.yml"
+            $sourceRef = if ($env:REF_TYPE -eq 'tag') { "refs/tags/$env:REF_NAME" } else { "refs/heads/$env:REF_NAME" }
+            $provenanceArgs = @(
+              '--repo', $env:GITHUB_REPOSITORY,
+              '--signer-workflow', $signerWorkflow,
+              '--source-ref', $sourceRef,
+              '--source-digest', $env:HEAD_SHA
+            )
+            gh attestation verify $zipPath @provenanceArgs
             if ($LASTEXITCODE -ne 0) {
-              throw 'Build provenance for the zip did not verify.'
+              throw 'Build provenance for the zip did not verify against the release workflow and source ref.'
             }
-            gh attestation verify (Join-Path $verify 'portfree.exe') --repo $env:GITHUB_REPOSITORY
+            gh attestation verify (Join-Path $verify 'portfree.exe') @provenanceArgs
             if ($LASTEXITCODE -ne 0) {
-              throw 'Build provenance for the standalone executable did not verify.'
+              throw 'Build provenance for the standalone executable did not verify against the release workflow and source ref.'
             }
-            $attestationSummary = '- Checksums, zip contents, and build provenance verified'
+            $attestationSummary = '- Checksums, zip contents, and signed provenance from the release workflow verified'
           } else {
             Write-Warning 'Skipping attestation verification for a private-repository dry run.'
             $attestationSummary = '- Checksums and zip contents verified; build provenance skipped for a private repository'

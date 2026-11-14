@@ -43,11 +43,11 @@ v1 releases are unsigned (see [SmartScreen](#smartscreen)), so verify a download
 2. Verify the build-provenance attestation with the [GitHub CLI](https://cli.github.com/):
 
    ```powershell
-   gh attestation verify .\portfree-v1.0.0-x86_64-pc-windows-msvc.zip --repo LoganBaird-Levenick/portfree
-   gh attestation verify .\portfree.exe --repo LoganBaird-Levenick/portfree
+   gh attestation verify .\portfree-v1.0.0-x86_64-pc-windows-msvc.zip --repo LoganBaird-Levenick/portfree --signer-workflow LoganBaird-Levenick/portfree/.github/workflows/release.yml --source-ref refs/tags/portfree-v1.0.0
+   gh attestation verify .\portfree.exe --repo LoganBaird-Levenick/portfree --signer-workflow LoganBaird-Levenick/portfree/.github/workflows/release.yml --source-ref refs/tags/portfree-v1.0.0
    ```
 
-   The attestation records that the artifact was built by this repository's release workflow from the tagged commit.
+   The attestation records that the artifact was built by this repository's release workflow from the tagged commit. `--signer-workflow` and `--source-ref` make the GitHub CLI enforce that workflow and tag instead of trusting any attestation from the repository.
 
 ## SmartScreen
 
